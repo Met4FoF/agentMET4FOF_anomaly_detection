@@ -1,19 +1,11 @@
 import gc
 #from MET4FOFDataReceiver import DataBuffer,DR
 import time
-#import psutil
 
+import plotly.graph_objs as go
 import matplotlib.pyplot as plt
 from datetime import datetime
 import os
-
-from sklearn.preprocessing import MinMaxScaler
-from sklearn.externals import joblib
-
-from sklearn.model_selection import cross_val_score,cross_validate
-from sklearn.metrics import make_scorer
-from sklearn.model_selection import StratifiedKFold
-from sklearn.model_selection import KFold,GridSearchCV
 
 import collections
 from numpy.random import seed
@@ -38,6 +30,8 @@ import copy
 import seaborn  as sns
 #p=Path(__file__).parent.parent.parent
 ########################################################################################################################
+from examples import custom_dashboard
+
 random_seed=42
 np.random.seed(random_seed)
 torch.manual_seed(random_seed)
@@ -58,11 +52,11 @@ class SineGeneratorAgent_Test1(AgentMET4FOF):
         def agent_loop(self):
             if self.current_state == "Running":
                 sine_data = self.stream.next_sample()  # dictionary
-                now = datetime.now()
-                sine_data = {'time': now.second, 'y': sine_data['x']}
+                #current_time = datetime.now().second
+                current_time = datetime.today().strftime("%H:%M:%S.%f")[:-3]
+                sine_data = {'Time':current_time,'y1': sine_data['x']}
 
-                # save data into memory
-                self.name="SineGeneratorAgent_Test1"
+                # self.name="SineGeneratorAgent_Test1"
                 self.update_data_memory({'from': self.name, 'data': sine_data})
                 # send out buffered data if the stored data has exceeded the buffer size
                 if len(self.memory[self.name][next(iter(self.memory[self.name]))]) >= self.buffer_size:
@@ -79,10 +73,11 @@ class SineGeneratorAgent_Test2(AgentMET4FOF):
         if self.current_state == "Running":
             sine_data = self.stream.next_sample()  # dictionary
             now = datetime.now()
-            sine_data = {'time': now.second, 'y': sine_data['x']}
+            current_time = datetime.today().strftime("%H:%M:%S.%f")[:-3]
+            sine_data = {'Time':current_time,'y2': sine_data['x']*.3}
 
             # save data into memory
-            self.name = "SineGeneratorAgent_Test2"
+            # self.name="SineGeneratorAgent_Test1"
             self.update_data_memory({'from': self.name, 'data': sine_data})
             # send out buffered data if the stored data has exceeded the buffer size
             if len(self.memory[self.name][next(iter(self.memory[self.name]))]) >= self.buffer_size:
@@ -90,23 +85,25 @@ class SineGeneratorAgent_Test2(AgentMET4FOF):
                 self.memory = {}
 
 class SineGeneratorAgent_Test3(AgentMET4FOF):
-    def init_parameters(self, sensor_buffer_size):
+        def init_parameters(self, sensor_buffer_size):
             self.stream = SineGenerator()
             self.buffer_size = sensor_buffer_size
 
-    def agent_loop(self):
+        def agent_loop(self):
             if self.current_state == "Running":
                 sine_data = self.stream.next_sample()  # dictionary
                 now = datetime.now()
-                sine_data = {'time': now.second, 'y': sine_data['x']}
+                current_time = datetime.today().strftime("%H:%M:%S.%f")[:-3]
+                sine_data = {'Time':current_time,'y3': sine_data['x']*.6}
 
                 # save data into memory
-                self.name = "SineGeneratorAgent_Test3"
+                # self.name="SineGeneratorAgent_Test1"
                 self.update_data_memory({'from': self.name, 'data': sine_data})
                 # send out buffered data if the stored data has exceeded the buffer size
                 if len(self.memory[self.name][next(iter(self.memory[self.name]))]) >= self.buffer_size:
                     self.send_output(self.memory[self.name])
                     self.memory = {}
+
 ########################################################################################################################
 
 
@@ -186,12 +183,10 @@ class encoder(nn.Module):
 
 
       self.encoder_L1 = nn.Linear(self.n_features, self.hidden_dim, bias=True)
-      #nn.init.xavier_uniform_(self.encoder_L1.weight)
       self.encoder_R1 = nn.ReLU(True)
 
 
       self.encoder_L2 = nn.Linear(self.hidden_dim, self.embedding_dim, bias=True)
-      #nn.init.xavier_uniform_(self.encoder_L2.weight)
       self.encoder_R2 = nn.ReLU(True )
 
 
@@ -214,11 +209,9 @@ class decoder(nn.Module):
     self.hidden_dim, self.n_features = 2 * input_dim, n_features
 
     self.decoder_L1 = nn.Linear(in_features=self.input_dim, out_features=self.hidden_dim)  # add linearity
-    #nn.init.xavier_uniform_(self.decoder_L1.weight)  # init weights according to [1]
     self.decoder_R1 = nn.ReLU(True )  # add non-linearity according to [2]
 
     self.decoder_L2 = nn.Linear(in_features=self.hidden_dim, out_features=self.n_features, bias=True)  # add linearity
-    #nn.init.xavier_uniform_(self.decoder_L2.weight)  # init weights according to [1]
     self.decoder_R2 = nn.ReLU(True)  # add non-linearity according to [2]
 
     # init dropout layer with probability p
@@ -229,19 +222,18 @@ class decoder(nn.Module):
     x = self.decoder_L1(x)
     x = self.decoder_L2(x)
 
-
     return x
 
 ##########################################################################
-model_type="withLSTM"
-#model_type="withoutLSTM"
+#model_type="withLSTM"
+model_type="withoutLSTM"
 class RecurrentAutoencoder(nn.Module):
 
       def __init__(self, seq_len, n_features, embedding_dim=64):
           super(RecurrentAutoencoder, self).__init__()
 
-          self.encoder = Encoder(seq_len, n_features, embedding_dim).to(device)
-          self.decoder = Decoder(seq_len, embedding_dim, n_features).to(device)
+          self.encoder = encoder(seq_len, n_features, embedding_dim).to(device)
+          self.decoder = decoder(seq_len, embedding_dim, n_features).to(device)
 
       def forward(self, x):
           x = self.encoder(x)
@@ -250,120 +242,66 @@ class RecurrentAutoencoder(nn.Module):
           return x
 
 ########################################################################################################################
-#model=Model()
-#class Trainer(AgentMET4FOF):
-
-    #     self.BenesBuffer = DataBuffer(buffer_length)
-    #     DR.AllSensors[sensor_id].SetCallback(self.BenesBuffer.PushData)
-#
-    #     self.buffer_length = buffer_length
-    #     self.buffer_length_realdata = buffer_length
-    #     self.sensor_id = sensor_id
-    #def __init__(self,number_columns_inbuffer,buffer_length):
-    #def init_parameters(self):
-
-       # self.buffer_length = 5#buffer_length
-        #self.buffer_length_realdata = buffer_length
-
-
-
-########################################################################################################################
-    #def plot_real_data(self):
-    #    start = timeit.timeit()
-    #    while self.BenesBuffer.Datasetpushed < self.buffer_length:
-    #        time.sleep(.001)
-##
-    #    df_test = DataFrame(columns=['unix_time', 'unix_time_nsecs', 'Data_01', 'Data_02', 'Data_03'])
-#
-    #    if not df_test.empty:
-    #        del [[df_test]]
-    #        gc.collect()
-#
-    #    for i in range(self.buffer_length):
-    #        df_test.loc[i, 'unix_time'] = self.BenesBuffer.Buffer[i].unix_time
-    #        df_test.loc[i, 'unix_time_nsecs'] = self.BenesBuffer.Buffer[i].unix_time_nsecs
-    #        df_test.loc[i, 'Data_01'] = self.BenesBuffer.Buffer[i].Data_01
-    #        df_test.loc[i, 'Data_02'] = self.BenesBuffer.Buffer[i].Data_02
-    #        df_test.loc[i, 'Data_03'] = self.BenesBuffer.Buffer[i].Data_03
-#
-    #    df_test.index = (df_test['unix_time'] - self.BenesBuffer.firsttimestamp_s + df_test[
-    #        'unix_time_nsecs'] / 1e9) - (
-    #                            self.BenesBuffer.firsttimestamp_ns / 1e9)
-    #    df_test = df_test[['Data_01', 'Data_02', 'Data_03']]
-#
-    #    test = df_test
-    #    #x = test.iloc[:, [0]] * .005
-    #    #y = test.iloc[:, [1]] * .1
-    #    #z = test.iloc[:, [2]] * .01
-    #    #test_sum = x.values + y.values + z.values
-    #    #x = test.index
-    #    #test.reset_index(drop=False, inplace=True)
-#########################################################################################################################
-class Predictor(AgentMET4FOF):
+class Aggregator(AgentMET4FOF):
     def init_parameters(self):
+        self.df =[]
+    def on_received_message(self, message):
+        self.update_data_memory(message)
+        print(f'message:{message}')
+        self.log_info("self.memory:"+str(self.memory))
+
+        if 'Sensor1_1' in self.memory and 'Sensor2_1' in self.memory and 'Sensor3_1' in self.memory:
+            a = pd.DataFrame(self.memory['Sensor1_1'])
+            b = pd.DataFrame(self.memory['Sensor2_1'])
+            c = pd.DataFrame(self.memory['Sensor3_1'])
+
+            agg_df = pd.concat([a, b, c], axis=1)
+            agg_df = agg_df.loc[:, ~agg_df.columns.duplicated()]
+
+            self.memory={}
+            print(f'agg_df:{agg_df}')
+            self.send_output(agg_df.to_dict("list"))
+
+
+class Predictor(AgentMET4FOF):
+    def init_parameters(self,train_size):
         self.model = 0
         self.counter = 0
-        self.var_Xtrain = 0
+        self.X_train_mean = 0
+        self.X_train_std = 0
+        self.n_epochs = 5
+        self.train_size=train_size
+        self.X_train_df = pd.DataFrame()
+
 
     def on_received_message(self,message):
-        #start = time.time()
-        #while self.BenesBuffer.Datasetpushed < self.buffer_length:
-        #      time.sleep(.001)
-#
-        #df_test = DataFrame(columns=['unix_time', 'unix_time_nsecs', 'Data_01', 'Data_02', 'Data_03'])
-        #df_test = pd.DataFrame(columns=["time", "x"])
-#
-
-
-        #if self.pointer < 5:
-        #    self.data = pd.DataFrame.from_dict(self.ssupertream).iloc[self.pointer:self.pointer+1]
-        #    self.pointer += 1
-
-
-        #if not df_test.empty :
-        #   del [[df_test]]
-        #   gc.collect()
-##
-        #for i in range(self.buffer_length):
-        #    df_test.loc[i, 'unix_time'] = self.BenesBuffer.Buffer[i].unix_time
-        #    df_test.loc[i, 'unix_time_nsecs'] = self.BenesBuffer.Buffer[i].unix_time_nsecs
-        #    df_test.loc[i, 'Data_01'] = self.BenesBuffer.Buffer[i].Data_01
-        #    df_test.loc[i, 'Data_02'] = self.BenesBuffer.Buffer[i].Data_02
-        #    df_test.loc[i, 'Data_03'] = self.BenesBuffer.Buffer[i].Data_03
-##
-        #df_test.index = (df_test['unix_time'] - self.BenesBuffer.firsttimestamp_s + df_test['unix_time_nsecs'] / 1e9) - (
-        #        self.BenesBuffer.firsttimestamp_ns / 1e9)
-        #df_test=df_test[['Data_01','Data_02','Data_03']]
-###########################################################################################################################
-
-        #df_test.index = df_test["time"]
-        #df_test = df_test.drop("time", axis=1)
-###########################################################################################################################
-        # handle Trainer Agent
-        #self.model = 0
-
         self.best_loss = 10000.0
-        self.n_epochs = 5
-
-
         self.log_info("trainer_Start")
-        # x = input()
-        # print('Hello, ' + x)
 
-        X_train = pd.DataFrame(message["data"]['y'])
-        print(f'X_train:{X_train}')
+        print(f'agg_message:{message}')
+        X_train_df_temp = pd.DataFrame([message['data']['y1'], message['data']['y2'], message['data']['y3']])
+        X_train_df_temp = X_train_df_temp.T
+        print(f'X_train_df_temp:{X_train_df_temp}')
 
 
-        self.counter +=len(X_train)
-        print(f'input:{X_train}')
-        if self.counter<=len(X_train):
+        if self.counter < self.train_size:
+           self.counter += len(X_train_df_temp)
 
-           self.var_Xtrain = np.array(X_train)
-           self.var_Xtrain = self.var_Xtrain.var(axis=0)
-           print(f'var_Xtrain:{self.var_Xtrain}')
+           self.X_train_df=self.X_train_df.append(X_train_df_temp.head(self.train_size))
+           self.X_train_df=self.X_train_df.reset_index(drop=True)
+           print(f'X_train_df:{self.X_train_df}')
 
-           print(f'ctr:{self.counter}')
-           X_train, seq_len, n_features = create_dataset(X_train)
+        if self.counter>=self.train_size and self.model == 0:
+           print(f'counter1:{self.counter}')
+
+           print(f'full_X_train_df:{self.X_train_df}')
+
+           self.X_train_std = self.X_train_df.std(axis=0)
+
+           print(f'X_train_std:{self.X_train_std}')
+
+
+           X_train_df, seq_len, n_features = create_dataset(self.X_train_df)
 
            self.model = RecurrentAutoencoder(seq_len, n_features, 64)
            self.model = self.model.to(device)
@@ -378,7 +316,7 @@ class Predictor(AgentMET4FOF):
                self.model = self.model.train()
 
                train_losses = []
-               for seq_true in X_train:
+               for seq_true in X_train_df:
                    self.optimizer.zero_grad()
 
                    seq_true = seq_true.to(device)
@@ -395,10 +333,6 @@ class Predictor(AgentMET4FOF):
 
                self.history['train'].append(train_loss)
 
-               # if val_loss < best_loss:
-               #  best_loss = val_loss
-               #  best_model_wts = copy.deepcopy(model.state_dict())
-
                print(f'Epoch:{model_type} {epoch}: train loss {np.round(train_loss, 3)}')  # val loss {np.round(val_loss)}')
 
                self.model.load_state_dict(self.best_model_wts)
@@ -407,114 +341,118 @@ class Predictor(AgentMET4FOF):
            #self.send_output({'model': self.model.eval()})
 ########################################################################################################################
 
-        elif self.counter>len(X_train):
-                print(f'cts:{self.counter}')
-                df_test=0
+        #elif self.counter>len(X_train_df):
+        elif self.model != 0 :
+                print(f'counter2:{self.counter}')
+                X_test_df=0
                 now = datetime.now()
-                df_test = message["data"]['y']
 
-                # if message["from"]=="AnomaliesGeneratorAgent_Test" and now.second % 5 != 0:
-                if  now.second % 5 != 0:
-                    r = np.random.uniform(-2, 2, size=1)
-                    df_test = message["data"]['y']*r
-                    print(f'inputan:{df_test}')
-               # elif message["from"]=="SineGeneratorAgent_Test1" and now.second % 5 != 0:
-                #    self.log_info("ttt")
-                 #   df_test = message["data"]['y']
+                print(f'message_test:{message}')
+                # X_test_df =pd.DataFrame([message['data']['y1'], message['data']['y2'], message['data']['y3']])
+                # X_test_df=X_test_df.T
+                # print(f'X_test_df:{X_test_df}')
 
-                df_test = pd.DataFrame(df_test)
-                self.log_info("df_test_begin")
-                df_test, seq_len, n_features = create_dataset(df_test)
+                if  now.second % 5 == 0:
+                    r = np.random.uniform(-2,2 , size=1)
+                    print(f'r:{r}')
+                    X_test_df = pd.DataFrame([message['data']['y1']*r, message['data']['y2']*r*.3, message['data']['y3']*r*.6])
+                    X_test_df = X_test_df.T
+                    print(f'abnormal_test:{X_test_df}')
 
-                self.log_info("df_test_finish")
+                if now.second % 5 != 0:
+                    X_test_df = pd.DataFrame([message['data']['y1'], message['data']['y2'], message['data']['y3']])
+                    X_test_df = X_test_df.T
+                    print(f'normal_test:{X_test_df}')
+                self.log_info("X_test_df_begin:")
+
+                X_test_df, seq_len, n_features = create_dataset(X_test_df)
 
                 predictions, losses = [], []
                 #criterion = nn.L1Loss(reduction='sum').to(device)
                 with torch.no_grad():
                     self.model = self.model.eval()
-                    for seq_true in df_test:
+                    for seq_true in X_test_df:
                         seq_true = seq_true.to(device)
                         seq_pred = self.model(seq_true)
-
                         #loss = criterion(seq_pred, seq_true)
 
                         predictions.append(seq_pred.cpu().numpy().flatten())
                         #losses.append(loss.item())
 
-                df_test = [t.tolist() for t in df_test]
-                print(f'df_test: {df_test}')
-                df_test=pd.DataFrame(np.squeeze(df_test, axis=1))
-                print(f'df_test2: {df_test}')
-                X_test = np.array(df_test)
-                #X_test = X_test.reshape(X_test.shape[0], 1, X_test.shape[1])
+                X_test_df = [t.tolist() for t in X_test_df]
+                print(f'X_test_df_torch_3dim: {X_test_df}')
 
-                #X_pred = X_pred.reshape(X_pred.shape[0], X_pred.shape[2])
+                X_test_df=pd.DataFrame(np.squeeze(X_test_df))
+                print(f'X_test_df_torch: {X_test_df}')
+
+                X_test_arr = np.array(X_test_df)
+                print(f'X_test_arr: {X_test_arr}')
+
                 X_pred = [t.tolist() for t in predictions]
-                X_pred = pd.DataFrame(np.squeeze(X_pred, axis=1))
-                Xpred = pd.DataFrame(X_pred)
-                #Xpred=np.array(X_pred)
+                X_pred_df = pd.DataFrame(np.squeeze(X_pred))
+                print(f'X_pred_df: {X_pred_df}')
+
+                Xpred_arr = np.array(X_pred_df)
+                print(f'Xpred_arr: {Xpred_arr}')
+
                 #X_pred.index = message["data"]['time']
 ############################################################################################################################
                 var_Xtest = 0
+                std_Xtest=0
                 loss = 0
                 uncertainty_loss_der_square = 0
                 uncertainty_loss = 0
                 z_scores = 0
                 p_values = 0
                 scored = pd.DataFrame()
-                test_sum = pd.DataFrame()
-                #uncertainty_loss_der_square=pd.DataFrame()
-                #Xtest = X_test.reshape(X_test.shape[0], X_test.shape[2])
-                Xtest =X_test
-                if not scored.empty and test_sum.empty :#and uncertainty_loss_der_square:
-                  del [[scored, test_sum]]#,uncertainty_loss_der_square]]
+
+                if not scored.empty:
+                  del [scored]
                   gc.collect()
 
-                x = 0
-                y = 0
-                z = 0
-                print(f'Xtest: {Xtest}')
-                var_Xtest = Xtest.var(axis=0)
+                var_Xtest = X_test_arr.var(axis=0)
+                std_Xtest = X_test_arr.std(axis=0)
                 print(f'var_Xtest: {var_Xtest}')
+
                 #loss = (1 / 3) * np.sum(((Xtest - X_pred) ** 2), axis=1)
-                loss =  np.sum(((Xtest - X_pred) ** 2), axis=1)
-                print(f'mse: {loss}')
+                loss =  (1/len(X_test_df.columns))*np.sum(((X_test_arr - Xpred_arr) ** 2), axis=0)
+                print(f'MSE: {loss}')
+
                 l1 = []
                 l2 = []
 
-                for i in range(1):
-                    l1 = ((Xtest[:, i] - Xpred.iloc[:, i]) / 2) ** 2
+                for i in range(len(X_test_df.columns)):
+                    l1 = ((X_test_arr[:, i] - X_pred_df.iloc[:, i]) / 2) ** 2
                     l2.append(l1)
 
                 uncertainty_loss_der_square = pd.DataFrame(np.transpose(l2))
                 print(f'uncertainty_loss_der_square: {uncertainty_loss_der_square}')
-                print(f'var_Xtest: {var_Xtest}')
-                uncertainty_loss = np.sum(uncertainty_loss_der_square * var_Xtest, axis=1)
+
+                uncertainty_loss = np.sum(uncertainty_loss_der_square * var_Xtest, axis=0)
                 print(f'uncertainty_loss: {uncertainty_loss}')
 
-            #threshold = 74.315067 #* 3
-                threshold =self.var_Xtrain[0]*3
+                print(f'X_train_std: {self.X_train_std}')
+                threshold =[np.mean(self.X_train_std)*2]# 95.4% confidence interval
                 print(f'threshold: {threshold}')
 
                 z_scores = (threshold - loss) / np.sqrt(uncertainty_loss.values)
                 print(f'z_scores: {z_scores}')
+
                 p_values =stats.norm.cdf(z_scores)
                 print(f'p_values: {p_values}')
 
-                scored['loss'] = loss
-                scored['threshold'] = threshold
-                #scored['uncertainty_loss'] = uncertainty_loss.values
-                scored['upper_uncertainty_loss'] = loss + uncertainty_loss.values
-                scored['below_uncertainty_loss'] = loss - uncertainty_loss.values
-                scored['p_values'] = 1-p_values
+                scored['loss'] =[np.mean(loss)]
 
-        #test_sum = test.index
-#
-        #x = test.iloc[:, [0]] * .005
-        #y = test.iloc[:, [1]] * .1
-        #z = test.iloc[:, [2]] * .01
-        #test_sum = x.values + y.values + z.values
-        #test['test_sum'] = test_sum#np.abs(test_sum)
+                scored['threshold'] =threshold
+                print("threshold:",scored['threshold'])#threshold
+                #scored['uncertainty_loss'] = uncertainty_loss.values
+                scored['upper_uncertainty_loss'] = np.mean([loss + uncertainty_loss.values])
+                scored['below_uncertainty_loss'] = np.mean([loss - uncertainty_loss.values])
+
+                scored['p_values'] = np.mean([1-p_values])
+                scored['Time'] =message['data']['Time'][0]
+                #print(f"ttt:{message['data']['Time'][0]}")
+                print(f'scored:{scored.T}')
 
        #if scored.iloc[:, 0].mean()>threshold:
        #    df_anomalies.loc[scored.index[-1],'loss']=scored.iloc[:, 0].mean()
@@ -526,51 +464,101 @@ class Predictor(AgentMET4FOF):
         #u=np.round(p,3)
         #print(u)
                 self.scored_dict=scored.to_dict("list")
+                print(f'scored_dict:{self.scored_dict}')
                 self.send_output(self.scored_dict)
         else:
                 self.log_info("train_model not available!!!")
 
+def custom_create_monitor_graph_actualdata(data, sender_agent):
+    """
+    Parameters
+    ----------
+    data : dict or np.darray
+        The data saved in the MonitorAgent's memory, for each Inputs (Agents) it is connected to.
+
+    sender_agent : str
+        Name of the sender agent
+
+    **kwargs
+        Custom parameters
+    """
+
+    x=data['Time']
+    y1 = data['y1']
+    y2 = data['y2']
+    y3 = data['y3']
+
+    all_go = [go.Scatter(x=x, y=y1, mode="lines", name='Sensor1',line=dict(color="red")),
+              go.Scatter(x=x, y=y2, mode="lines", name='Sensor2',line=dict(color="green")),
+              go.Scatter(x=x, y=y3, mode="lines", name='Sensor3',line=dict(color="blue"))]
+    return all_go
+
+def custom_create_monitor_graph_calculation(data, sender_agent):
+    """
+    Parameters
+    ----------
+    data : dict or np.darray
+        The data saved in the MonitorAgent's memory, for each Inputs (Agents) it is connected to.
+
+    sender_agent : str
+        Name of the sender agent
+
+    **kwargs
+        Custom parameters
+    """
+
+    x=data['Time']
+    #x= datetime.now().second
+    loss = data['loss']
+    threshold = data['threshold']
+    upper_uncertainty_loss = data['upper_uncertainty_loss']
+    below_uncertainty_loss = data['below_uncertainty_loss']
+    p_values = data['p_values']
+
+    all_go = [go.Scatter(x=x, y=loss, mode="lines", name='Loss',line=dict(color="#3399FF")),
+              go.Scatter(x=x, y=threshold, mode="lines", name='Threshold',line=dict(color="yellow")),
+              go.Scatter(x=x, y=upper_uncertainty_loss, mode="lines", name='Upper_uncertainty_loss',line=dict(color="#CCE5FF")),
+              go.Scatter(x=x, y=below_uncertainty_loss, mode="lines", name='Below_uncertainty_loss',line=dict(color="#CCE5FF")),
+              go.Scatter(x=x, y=p_values, mode="lines", name='p_values',line=dict(color="#FF66B2"))]
+    return all_go
 #############################################################################################################################
 def main():
     # start agent network server
     agentNetwork = AgentNetwork()
-    # init agents
 
-    gen_agent_test1 = agentNetwork.add_agent(agentType=SineGeneratorAgent_Test1, log_mode=False)
-    #gen_agent_test2 = agentNetwork.add_agent(agentType=SineGeneratorAgent_Test2, log_mode=False)
-    #gen_agent_test3 = agentNetwork.add_agent(agentType=SineGeneratorAgent_Test3, log_mode=False)
-
+    gen_agent_test1 = agentNetwork.add_agent(name="Sensor1", agentType=SineGeneratorAgent_Test1, log_mode=False)
+    gen_agent_test2 = agentNetwork.add_agent(name="Sensor2",agentType=SineGeneratorAgent_Test2, log_mode=False)
+    gen_agent_test3 = agentNetwork.add_agent(name="Sensor3",agentType=SineGeneratorAgent_Test3, log_mode=False)
 
 
+    aggregator_agent = agentNetwork.add_agent(agentType=Aggregator)
     predictor_agent = agentNetwork.add_agent(agentType=Predictor)
 
-    monitor_agent_1 =  agentNetwork.add_agent(agentType= MonitorAgent, memory_buffer_size=1000,log_mode=False)
-    monitor_agent_2 =  agentNetwork.add_agent(agentType= MonitorAgent, memory_buffer_size=1000,log_mode=False)
+    monitor_agent_1 =  agentNetwork.add_agent(agentType= MonitorAgent, memory_buffer_size=100,log_mode=False)
+    monitor_agent_2 =  agentNetwork.add_agent(agentType= MonitorAgent, memory_buffer_size=100,log_mode=False)
 
-
+    #setting agent parameters
     gen_agent_test1.init_parameters(sensor_buffer_size=10)
-    gen_agent_test1.init_agent_loop(loop_wait=.1)
-#
-    #trainer_agent.init_parameters()
-    predictor_agent.init_parameters()
-    ##gen_agent.init_parameters(stream=SineGenerator(), pretrain_size=1000,batch_size=1)
+    gen_agent_test2.init_agent_loop(loop_wait=.01)
+    gen_agent_test3.init_parameters(sensor_buffer_size=10)
+    gen_agent_test1.init_agent_loop(loop_wait=.01)
+    gen_agent_test2.init_parameters(sensor_buffer_size=10)
+    gen_agent_test3.init_agent_loop(loop_wait=.01)
 
-    # connect agents : We can connect multiple agents to any particular agent
-    # However the agent needs to implement handling multiple input types
-    ##agentNetwork.bind_agents(gen_agent, trainer_agent)
-    # This monitor agent will only store 'x' of the data keys into its memory
+    aggregator_agent.init_parameters()
+    predictor_agent.init_parameters(100) #define train_size
 
-    monitor_agent_1.init_parameters(plot_filter=['y'])
+    monitor_agent_1.init_parameters(plot_filter=['Time','y1','y2','y3'],custom_plot_function=custom_create_monitor_graph_actualdata)
+    monitor_agent_2.init_parameters(plot_filter=['Time', 'loss', 'threshold', 'upper_uncertainty_loss','below_uncertainty_loss','p_values'],
+                                    custom_plot_function=custom_create_monitor_graph_calculation)
 
-    #agentNetwork.bind_agents(gen_agent_train, trainer_agent)
-    agentNetwork.bind_agents(gen_agent_test1, predictor_agent)
-    #agentNetwork.bind_agents(gen_agent_anomaly, predictor_agent)
+    #bind agents
+    agentNetwork.bind_agents(gen_agent_test1, aggregator_agent)
+    agentNetwork.bind_agents(gen_agent_test2, aggregator_agent)
+    agentNetwork.bind_agents(gen_agent_test3, aggregator_agent)
 
-    #agentNetwork.bind_agents(trainer_agent, predictor_agent)
-    agentNetwork.bind_agents(gen_agent_test1, monitor_agent_1)
-    #agentNetwork.bind_agents(gen_agent_test2, monitor_agent_1)
-    #agentNetwork.bind_agents(gen_agent_test3, monitor_agent_1)
-
+    agentNetwork.bind_agents(aggregator_agent, predictor_agent)
+    agentNetwork.bind_agents(aggregator_agent, monitor_agent_1)
     agentNetwork.bind_agents(predictor_agent, monitor_agent_2)
     # set all agents states to "Running"
     agentNetwork.set_running_state()
@@ -581,3 +569,6 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+
+# Done and finish

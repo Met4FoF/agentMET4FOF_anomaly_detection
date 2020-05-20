@@ -1,33 +1,28 @@
+#! Author Mr.Majid Aminian(majidam66@gmail.com)
+
 import gc
 import time
-
 import plotly.graph_objs as go
-import matplotlib.pyplot as plt
 from datetime import datetime
 import os
-
-import collections
 from numpy.random import seed
 from scipy import stats
-import timeit
 
 from agentMET4FOF.agents import AgentMET4FOF, AgentNetwork, MonitorAgent, DataStreamAgent
 from agentMET4FOF.streams import SineGenerator
 from pathlib import Path
 
 import torch
-import torchvision
 import numpy as np
 import pandas as pd
-import argparse
 import torch.utils.data as data
 from torch import nn, optim
 from torch.autograd import Variable
 from torch.nn import functional as F
 import random
 import copy
-import seaborn  as sns
 from examples import custom_dashboard
+
 #######################################################################################################################
 #Defined random_seed because we want same raw data in every runing
 random_seed=42
@@ -48,10 +43,10 @@ class SineGeneratorAgent(AgentMET4FOF):
     def agent_loop(self):
         if self.current_state == "Running":
             sine_data = self.stream.next_sample()
-            #current_time = datetime.today().strftime("%H:%M:%S.%f")[:-3]
+            current_time = datetime.today().strftime("%H:%M:%S.%f")[:-3]
             # current_time = current_time.split()[0].replace(':', '')
             # current_time = float(current_time)
-            current_time = time.time()
+            # current_time = time.time()
 
             if self.scale_amplitude==1:
                 sine_data = {'Time': current_time, 'y1': sine_data['x'] * self.scale_amplitude}
@@ -68,15 +63,14 @@ class SineGeneratorAgent(AgentMET4FOF):
 ########################################################################################################################
 #Auto encoder consisted by two classes Encoder and Decoder
 #We have two types of Encoder and Decoder that names withLSTM and withoutLSTM
-#Definition of three important variables
+#Definition of three important variables in pytorch model
 '''
 seq_len means number of columns
 n_seq means number of rows
 n_features means each tensor that is one
-
 '''
 
-# Each of Encoder_withLSTM and Decoder_withLSTM has two layers of LSTM that call rnn1 and rnn2
+# Each of Encoder_withLSTM and Decoder_withLSTM has two layers of LSTM that is called rnn1 and rnn2
 class Encoder_withLSTM(nn.Module):
 
   def __init__(self, seq_len, n_features, embedding_dim=64):
@@ -142,8 +136,8 @@ class Decoder_withLSTM(nn.Module):
     return self.output_layer(x)
 
 #########################################################################
-# implementation of the encoder network
-# Each of Encoder_withoutLSTM and Decoder_withoutLSTM has two layers that call L1 and L2
+# Implementation of the encoder network
+# Each of Encoder_withoutLSTM and Decoder_withoutLSTM has two layers that is called L1 and L2
 class Encoder_withoutLSTM(nn.Module):
 
   def __init__(self,seq_len, n_features, embedding_dim=64):
@@ -225,6 +219,8 @@ class Aggregator(AgentMET4FOF):
             b = pd.DataFrame(self.memory['Sensor2_1'])
             c = pd.DataFrame(self.memory['Sensor3_1'])
 
+#Here we concatenate there different sensor data and remove duplicatd time columns,
+# so we have one data frame with one time column and three different sensor data in three columns
             agg_df = pd.concat([a, b, c], axis=1)
             agg_df = agg_df.loc[:, ~agg_df.columns.duplicated()]
 
@@ -232,23 +228,32 @@ class Aggregator(AgentMET4FOF):
             print(f'agg_df:{agg_df}')
             self.send_output(agg_df.to_dict("list"))
 
-#Predictor class is the most important class that we train, predict and calculate loss, uncertainties, threshold and p_value
+#Predictor class is the most important class that we train, predict and calculate loss, uncertainties, threshold and p_value,
+# so all these calculations will be done in function "on_received_message" in every iteration
 class Predictor(AgentMET4FOF):
     def init_parameters(self,train_size,model_type):
         self.model = None
         self.counter = 0
-        self.X_train_mean = 0
         self.X_train_std = 0
         self.n_epochs = 5
         self.train_size=train_size
         self.X_train_df = pd.DataFrame()
+
         self.model_type=model_type
         self.path=str(Path(__file__).parent)+"/saved_trained_models/"
         self.train_loss_best=[]
         self.best_epoch=None
-        self.best_model_wts=None
+        self.best_model_wts=[]
+        
+        self.var_Xtest = 0
+        self.loss = 0
+        self.uncertainty_loss_der_square = 0
+        self.uncertainty_loss = 0
+        self.threshold=0
+        self.z_scores = 0
+        self.p_values = 0
 
-#Function create_dataset receive a dataframe parameter and convert it to list of tensors that pytorch model could read it
+#Function "create_dataset" receives a dataframe parameter and convert it to list of tensors that pytorch model could read it as input data
     def create_dataset(self,df):
         sequences = df.astype(np.float32).to_numpy().tolist()
         dataset = [torch.tensor(s).unsqueeze(1).float() for s in sequences]
@@ -256,7 +261,6 @@ class Predictor(AgentMET4FOF):
         return dataset, seq_len, n_features
 
     def on_received_message(self,message):
-
         self.log_info("trainer_Start")
 
         print(f'agg_message:{message}')
@@ -264,8 +268,8 @@ class Predictor(AgentMET4FOF):
         X_train_df_temp = X_train_df_temp.T
         print(f'X_train_df_temp:{X_train_df_temp}')
 
-#In below if block we fill a X_train_df in amount of train_size by considering in every loop  that
-# we receive X_train_df_temp that it's size is amount of buffer size
+#In below if block we fill a X_train_df in amount of train_size by considering in every iteration
+# we receive X_train_df_temp that it's size is amount of buffer size and will be added to X_train_df in amount of train size
         if self.counter < self.train_size:
            self.counter += len(X_train_df_temp)
 
@@ -273,7 +277,7 @@ class Predictor(AgentMET4FOF):
            self.X_train_df=self.X_train_df.reset_index(drop=True)
            print(f'X_train_df:{self.X_train_df}')
 
-#In below if block we X_train_df filled in amount of train_size, so we start to train model with X_train_df
+#In below if block we filled X_train_df in amount of train_size, so we start to train model with X_train_df
 #self.counter>=self.train_size means X_train_df filled in amount of train_size
 #self.model == None means our model did not tarin yet and is empty
         if self.counter>=self.train_size and self.model == None:
@@ -283,9 +287,10 @@ class Predictor(AgentMET4FOF):
 
            self.X_train_std = self.X_train_df.std(axis=0)
 
+#Here we calculate standard deviation of train data that in next steps will be puted in threshold
            print(f'X_train_std:{self.X_train_std}')
 
-
+#Here we pass X_train_df to function create_dataset for generating list of tensors that will be read in pytorch model as input data
            X_train_df, seq_len, n_features =self.create_dataset(self.X_train_df)
 
            print(f'seq_len:{seq_len}')
@@ -301,7 +306,7 @@ class Predictor(AgentMET4FOF):
            self.best_model_wts = copy.deepcopy(self.model.state_dict())
            print(f'state_dict:{self.model.state_dict()}')
 
-#In below for block we train model with some number of epochs
+#In below for block we train model with some number of epochs and calculate loss of train data
            for epoch in range(1, self.n_epochs + 1):
                self.model = self.model.train()
 
@@ -324,22 +329,22 @@ class Predictor(AgentMET4FOF):
                print(f'self.model.state_dict():{self.model.state_dict()}')
 
 #In below if block we put state_dict of best model(means each model that has minimum loss) in best_model_wts variable
-#In addition, train_loss_best[0] has minimum loss value
+#In addition, train_loss_best[0] has minimum train loss value
                if train_loss<self.train_loss_best[0]:
                   self.train_loss_best[0]=train_loss
-
-                  self.best_model_wts = self.model.state_dict()
+                  self.best_model_wts=[]
+                  self.best_model_wts.append(self.model.state_dict())
                   print(f'best_model_wts:{self.best_model_wts}')
                   self.best_epoch=epoch
 
-               print(f'Epoch:{self.model_type} {epoch}: train loss {np.round(train_loss, 4)}')
+               print(f'Epoch:{self.model_type} {epoch}: train loss {np.round(train_loss, 6)}')
 
            now = datetime.now()
 #In below block we save best_model_wts in hard disk
            torch.save(self.best_model_wts,
                       self.path + now.strftime("%Y-%m-%d___%H_%M_%S")+ '_train_epoch{}.pth'.format(self.best_epoch))
 
-           print(f'train_loss_best:{np.round(self.train_loss_best, 4)}')
+           print(f'train_loss_best:{np.round(self.train_loss_best, 6)}')
            print(f'best_model_wts:{self.best_model_wts}')
 
            self.log_info("trainer_End")
@@ -369,7 +374,7 @@ class Predictor(AgentMET4FOF):
 
                 X_test_torch, seq_len, n_features = self.create_dataset(X_test_df)
 
-# In below block we pass every stream blocks of data(in amount of buffer size) to model for prediction
+# In below block we pass every stream blocks of test data(in amount of buffer size) to model for prediction
                 predictions, losses = [], []
                 with torch.no_grad():
                     self.model = self.model.eval()
@@ -382,90 +387,82 @@ class Predictor(AgentMET4FOF):
                 X_test_torch = [t.tolist() for t in X_test_torch]
                 print(f'X_test_torch_3dim: {X_test_torch}')
 
-#Here convert 3dim list data to pandas dataframe
+#Here convert 3dim test list data to pandas dataframe
                 X_test_df=pd.DataFrame(np.squeeze(X_test_torch))
                 print(f'X_test_df: {X_test_df}')
-
-#Here convert pandas dataframe of np.array for better and easier next calculations
-                X_test_arr = np.array(X_test_df)
-                print(f'X_test_arr: {X_test_arr}')
 
 #Here convert 3dim list prediction data to pandas dataframe
                 X_pred = [t.tolist() for t in predictions]
                 X_pred_df = pd.DataFrame(np.squeeze(X_pred))
                 print(f'X_pred_df: {X_pred_df}')
 
-#Here convert pandas dataframe of np.array for better and easier next calculations
-                Xpred_arr = np.array(X_pred_df)
-                print(f'Xpred_arr: {Xpred_arr}')
-
 ############################################################################################################################
-                var_Xtest = 0
-                loss = 0
-                uncertainty_loss_der_square = 0
-                uncertainty_loss = 0
-                z_scores = 0
-                p_values = 0
-
-#scored data frame consisted by all calculation's results
-                scored = pd.DataFrame()
+#scored data frame consisted by all calculation's results that will be showed in monitor_agent_2 in final output web page
+                self.scored = pd.DataFrame()
 
 #In below if block we delete scored dataframe after each iteration for preventing overflow in memory
-                if not scored.empty:
-                  del [scored]
+                if not self.scored.empty:
+                  del [self.scored]
                   gc.collect()
 
-                var_Xtest = X_test_arr.var(axis=0)
-                print(f'var_Xtest: {var_Xtest}')
+                self.var_Xtest = X_test_df.var(axis=0)
+                print(f'var_Xtest: {self.var_Xtest}')
 
 #Here we calculate loss value we used mean square error formula for calculating of loss
-                loss =  (1/len(X_test_df.columns))*np.sum(((X_test_arr - Xpred_arr) ** 2), axis=0)
-                print(f'MSE: {loss}')
+                self.loss =  (1/len(X_test_df.columns))*np.sum(((X_test_df - X_pred_df) ** 2), axis=0)
+                print(f'MSE: {self.loss}')
 
 #Here we calculate derivative of loss for using in standard uncertainty
                 l1 = []
                 l2 = []
 
                 for i in range(len(X_test_df.columns)):
-                    l1 = ((X_test_arr[:, i] - X_pred_df.iloc[:, i]) / 2) ** 2
+                    l1 = ((X_test_df.iloc[:, i] - X_pred_df.iloc[:, i]) / 2) ** 2
                     l2.append(l1)
 
-                uncertainty_loss_der_square = pd.DataFrame(np.transpose(l2))
-                print(f'uncertainty_loss_der_square: {uncertainty_loss_der_square}')
+                self.uncertainty_loss_der_square = pd.DataFrame(np.transpose(l2))
+                print(f'uncertainty_loss_der_square: {self.uncertainty_loss_der_square}')
 
 #Here we calculate standard uncertainty
-                uncertainty_loss = np.sum(uncertainty_loss_der_square * var_Xtest, axis=0)
-                print(f'uncertainty_loss: {uncertainty_loss}')
+                self.uncertainty_loss = np.sum(self.uncertainty_loss_der_square * self.var_Xtest, axis=0)
+                print(f'uncertainty_loss: {self.uncertainty_loss}')
 
-#Here we define threshold that is calculated by mean of standard deviation of train data of three sensors
+#Here we define threshold that is calculated by mean of standard deviations of train data for three sensors
                 print(f'X_train_std: {self.X_train_std}')
-                threshold =[np.mean(self.X_train_std)*2]# 95.4% confidence interval
-                print(f'threshold: {threshold}')
+                self.threshold =[np.mean(self.X_train_std)*2]# 95.4% confidence interval
+                print(f'threshold: {self.threshold}')
 
-                z_scores = (threshold - loss) / np.sqrt(uncertainty_loss.values)
-                print(f'z_scores: {z_scores}')
+                self.z_scores = (self.threshold - self.loss) / np.sqrt(self.uncertainty_loss.values)
+                print(f'z_scores: {self.z_scores}')
 
-                p_values =stats.norm.cdf(z_scores)
-                print(f'p_values: {p_values}')
+#Here we calculate probability of each test data
+                self.p_values =stats.norm.cdf(self.z_scores)
+                print(f'p_values: {self.p_values}')
 
-                scored['loss'] =[np.mean(loss)]
+#In below codes we fill scored dataframe with all calculations that we achieved above
+#we consider mean of loss,uncertainty_loss and p_values because in output we must have one output for there different sensors
+                self.scored['loss'] =[np.mean(self.loss)]
 
-                scored['threshold'] =threshold
-                print("threshold:",scored['threshold'])#threshold
-                scored['upper_uncertainty_loss'] = np.mean([loss + uncertainty_loss.values])
-                scored['below_uncertainty_loss'] = np.mean([loss - uncertainty_loss.values])
+                self.scored['threshold'] =self.threshold
+                print("threshold:",self.scored['threshold'])
 
-                scored['p_values'] = np.mean([1-p_values])
-                scored['Time'] =message['data']['Time'][0]
-                print(f'scored:{scored.T}')
+                self.scored['upper_uncertainty_loss'] = np.mean([self.loss + self.uncertainty_loss.values])
+                self.scored['below_uncertainty_loss'] = np.mean([self.loss - self.uncertainty_loss.values])
 
-                self.scored_dict=scored.to_dict("list")
+                self.scored['p_values'] = np.mean([1-self.p_values])
+
+#Here we select first time of message(stream data came from aggregator)
+                self.scored['Time'] =message['data']['Time'][0]
+                print(f'scored:{self.scored.T}')
+
+                self.scored_dict=self.scored.to_dict("list")
                 print(f'scored_dict:{self.scored_dict}')
                 self.send_output(self.scored_dict)
         else:
                 self.log_info("train_model not available!!!")
 
-def custom_create_monitor_graph_actualdata(data, sender_agent):
+#In function custom_create_monitor_graph_raw_data we could modify appearance of final graph that will be showed in output web page
+def custom_create_monitor_graph_raw_data(data, sender_agent):
     """
     Parameters
     ----------
@@ -489,6 +486,7 @@ def custom_create_monitor_graph_actualdata(data, sender_agent):
               go.Scatter(x=x, y=y3, mode="lines", name='Sensor3',line=dict(color="blue"))]
     return all_go
 
+#In function custom_create_monitor_graph_calculation we could modify appearance of final graph that will be showed in output web page
 def custom_create_monitor_graph_calculation(data, sender_agent):
     """
     Parameters
@@ -516,7 +514,9 @@ def custom_create_monitor_graph_calculation(data, sender_agent):
               go.Scatter(x=x, y=below_uncertainty_loss, mode="lines", name='Below_uncertainty_loss',line=dict(color="#CCE5FF")),
               go.Scatter(x=x, y=p_values, mode="lines", name='p_values',line=dict(color="#FF66B2"))]
     return all_go
+
 #############################################################################################################################
+
 def main():
     # start agent network server
     agentNetwork = AgentNetwork()
@@ -532,19 +532,19 @@ def main():
     monitor_agent_1 =  agentNetwork.add_agent(agentType= MonitorAgent, memory_buffer_size=100,log_mode=False)
     monitor_agent_2 =  agentNetwork.add_agent(agentType= MonitorAgent, memory_buffer_size=100,log_mode=False)
 
-    gen_agent_test1.init_parameters(sensor_buffer_size=10)
+    gen_agent_test1.init_parameters(sensor_buffer_size=5)
     gen_agent_test1.init_agent_loop(loop_wait=.01)
 
-    gen_agent_test2.init_parameters(sensor_buffer_size=10, scale_amplitude=.3)
+    gen_agent_test2.init_parameters(sensor_buffer_size=5, scale_amplitude=.3)
     gen_agent_test2.init_agent_loop(loop_wait=.01)
 
-    gen_agent_test3.init_parameters(sensor_buffer_size=10, scale_amplitude=.6)
+    gen_agent_test3.init_parameters(sensor_buffer_size=5, scale_amplitude=.6)
     gen_agent_test3.init_agent_loop(loop_wait=.01)
 
 
-    predictor_agent.init_parameters(100,"withLSTM") #define train_size aand machine learning model types(withLSTM or withoutLSTM)
+    predictor_agent.init_parameters(10,"withLSTM") #define train_size and machine learning model types(withLSTM or withoutLSTM)
 
-    monitor_agent_1.init_parameters(plot_filter=['Time','y1','y2','y3'],custom_plot_function=custom_create_monitor_graph_actualdata)
+    monitor_agent_1.init_parameters(plot_filter=['Time','y1','y2','y3'],custom_plot_function=custom_create_monitor_graph_raw_data)
     monitor_agent_2.init_parameters(plot_filter=['Time', 'loss', 'threshold', 'upper_uncertainty_loss','below_uncertainty_loss','p_values'],
                                     custom_plot_function=custom_create_monitor_graph_calculation)
 
@@ -556,6 +556,7 @@ def main():
     agentNetwork.bind_agents(aggregator_agent, predictor_agent)
     agentNetwork.bind_agents(aggregator_agent, monitor_agent_1)
     agentNetwork.bind_agents(predictor_agent, monitor_agent_2)
+
     # set all agents states to "Running"
     agentNetwork.set_running_state()
 

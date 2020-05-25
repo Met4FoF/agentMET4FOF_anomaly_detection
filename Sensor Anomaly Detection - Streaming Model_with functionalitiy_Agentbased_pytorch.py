@@ -45,7 +45,7 @@ class SineGeneratorAgent(AgentMET4FOF):
         if self.current_state == "Running":
             sine_data = self.stream.next_sample()
 
-            current_time=datetime.now().time()
+            current_time=time.time()
 
             sine_data = {'Time': current_time, 'y1': sine_data['x'] * self.scale_amplitude}
 
@@ -291,8 +291,7 @@ class Trainer_Predictor(AgentMET4FOF):
         # self.model == None means model tarined and is ready to predict new input streams raw data
         elif self.model != None:
             self.log_info(f'counter2:{self.counter}')
-            scored_dict=self.Prediction_func(message,self.model)
-            self.send_output(scored_dict)
+            self.send_output(self.Prediction_func(message,self.model))
 
         else:
             self.log_info("train_model not available!!!")
@@ -494,7 +493,7 @@ def custom_create_monitor_graph_raw_data(data, sender_agent):
         Custom parameters
     """
 
-    x = data['Time']
+    x = pd.to_datetime(data['Time'], unit='s')
     y1 = data['y1']
     y2 = data['y2']
     y3 = data['y3']
@@ -520,7 +519,7 @@ def custom_create_monitor_graph_calculation(data, sender_agent):
         Custom parameters
     """
 
-    x = data['Time']
+    x = pd.to_datetime(data['Time'], unit='s')
     loss = data['loss']
     threshold = data['threshold']
     upper_uncertainty_loss = data['upper_uncertainty_loss']

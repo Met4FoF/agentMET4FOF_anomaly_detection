@@ -33,7 +33,6 @@ torch.manual_seed(random_seed)
 # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 device = torch.device("cpu")
 
-
 # Generating raw data
 class SineGeneratorAgent(AgentMET4FOF):
     def init_parameters(self, sensor_buffer_size, scale_amplitude=1):
@@ -229,6 +228,37 @@ class Aggregator(AgentMET4FOF):
             self.log_info(f"agg_df:{agg_df}")
             self.send_output(agg_df.to_dict("list"))
 
+class Disturbance(AgentMET4FOF):
+    def on_received_message(self, message):
+        self.log_info(f"agg_message:{message}")
+        now = datetime.now()
+
+        # Generate every 5 seconds random anomaly data and multiple to each sensor data, random anomaly data mulipuled with fixed decimal number because purpose is different anomalies for each sensor
+        if now.second % 5 == 0:
+            message['data'].update({'Anomalies': [True]})
+            self.log_info(f'message_Anomalies:{message}')
+
+            random_anomaly = np.random.uniform(-2, 2, size=1)
+            self.log_info(f'r:{random_anomaly}')
+            X_test_df = pd.DataFrame(
+                [message['data']['Time'],message['data']['y1'] * random_anomaly, message['data']['y2'] * random_anomaly * .3,
+                 message['data']['y3'] * random_anomaly * .6,message['data']['Anomalies']])
+
+            X_test_df = X_test_df.T
+            X_test_df.columns = ['Time', 'y1', 'y2', 'y3', 'Anomalies']
+            self.log_info(f'abnormal_test:{X_test_df}')
+
+        # Generate normal data during every 5 seconds
+        if now.second % 5 != 0:
+            self.log_info(f'aaa:{message}')
+            X_test_df = pd.DataFrame([message['data']['Time'],message['data']['y1'], message['data']['y2'], message['data']['y3']])
+            X_test_df = X_test_df.T
+
+            X_test_df.columns = ['Time', 'y1', 'y2', 'y3']
+            self.log_info(f'normal_test:{X_test_df}')
+
+        self.log_info(f'Disturbance_X_test_df:{X_test_df}')
+        self.send_output(X_test_df.to_dict("list"))
 
 # Predictor class is the most important class that could train, predict and calculate loss, uncertainties, threshold and p_value,
 # so all these calculations will be done in function "on_received_message" in every iteration
@@ -264,16 +294,16 @@ class Trainer_Predictor(AgentMET4FOF):
 
     def on_received_message(self, message):
         self.log_info("trainer_Start")
+        self.log_info(f"Disturbance_message:{message}")
 
-        self.log_info(f"agg_message:{message}")
-
-        X_train_df_temp = pd.DataFrame([message['data']['y1'], message['data']['y2'], message['data']['y3']])
-        X_train_df_temp = X_train_df_temp.T
-        self.log_info(f'X_train_df_temp:{X_train_df_temp}')
+        if 'Anomalies' not in message['data']:
+            X_train_df_temp = pd.DataFrame([message['data']['y1'], message['data']['y2'], message['data']['y3']])
+            X_train_df_temp = X_train_df_temp.T
+            self.log_info(f'X_train_df_temp:{X_train_df_temp}')
 
         #Fill a X_train_df in amount of train_size by considering in every iteration
         #Receive X_train_df_temp that it's size is amount of buffer size and will be added to X_train_df in amount of train size
-        if self.counter < self.train_size:
+        if self.counter < self.train_size and 'Anomalies' not in message['data']:
             self.counter += len(X_train_df_temp)
 
             self.X_train_df = self.X_train_df.append(X_train_df_temp.head(self.train_size))
@@ -368,26 +398,13 @@ class Trainer_Predictor(AgentMET4FOF):
 ########################################################################################################################
     def Prediction_func(self,message, model):
             X_test_df = 0
-            now = datetime.now()
-
             self.log_info(f'message_test:{message}')
-
-            #Generate every 5 seconds random anomaly data and multiple to each sensor data, random anomaly data mulipuled with fixed decimal number because purpose is different anomalies for each sensor
-            if now.second % 5 == 0:
-                random_anomaly = np.random.uniform(-2, 2, size=1)
-                self.log_info(f'r:{random_anomaly}')
-                X_test_df = pd.DataFrame(
-                    [message['data']['y1'] * random_anomaly, message['data']['y2'] * random_anomaly * .3,
-                     message['data']['y3'] * random_anomaly * .6])
-                X_test_df = X_test_df.T
-                self.log_info(f'abnormal_test:{X_test_df}')
-
-            #Generate normal data during every 5 seconds
-            if now.second % 5 != 0:
-                X_test_df = pd.DataFrame([message['data']['y1'], message['data']['y2'], message['data']['y3']])
-                X_test_df = X_test_df.T
-                self.log_info(f'normal_test:{X_test_df}')
             self.log_info("X_test_df_begin:")
+
+            X_test_df = pd.DataFrame([message['data']['y1'], message['data']['y2'], message['data']['y3']])
+            X_test_df = X_test_df.T
+            X_test_df.columns = ['y1', 'y2', 'y3']
+            self.log_info(f'X_test_df:{X_test_df}')
 
             X_test_torch, seq_len, n_features = self.create_dataset(X_test_df)
 
@@ -547,7 +564,8 @@ def main():
     gen_agent_test3 = agentNetwork.add_agent(name="Sensor3", agentType=SineGeneratorAgent, log_mode=False)
 
     aggregator_agent = agentNetwork.add_agent(agentType=Aggregator)
-    predictor_agent = agentNetwork.add_agent(agentType=Trainer_Predictor)
+    disturbance_agent=agentNetwork.add_agent(agentType=Disturbance)
+    Trainer_Predictor_agent = agentNetwork.add_agent(agentType=Trainer_Predictor)
 
     monitor_agent_1 = agentNetwork.add_agent(agentType=MonitorAgent, memory_buffer_size=100, log_mode=False)
     monitor_agent_2 = agentNetwork.add_agent(agentType=MonitorAgent, memory_buffer_size=100, log_mode=False)
@@ -561,7 +579,7 @@ def main():
     gen_agent_test3.init_parameters(sensor_buffer_size=5, scale_amplitude=.6)
     gen_agent_test3.init_agent_loop(loop_wait=.01)
 
-    predictor_agent.init_parameters(10,
+    Trainer_Predictor_agent.init_parameters(10,
                                     "withLSTM")  # define train_size and machine learning model types(withLSTM or withoutLSTM)
 
     monitor_agent_1.init_parameters(plot_filter=['Time', 'y1', 'y2', 'y3'],
@@ -575,9 +593,10 @@ def main():
     agentNetwork.bind_agents(gen_agent_test2, aggregator_agent)
     agentNetwork.bind_agents(gen_agent_test3, aggregator_agent)
 
-    agentNetwork.bind_agents(aggregator_agent, predictor_agent)
+    agentNetwork.bind_agents(aggregator_agent, disturbance_agent)
+    agentNetwork.bind_agents(disturbance_agent, Trainer_Predictor_agent)
     agentNetwork.bind_agents(aggregator_agent, monitor_agent_1)
-    agentNetwork.bind_agents(predictor_agent, monitor_agent_2)
+    agentNetwork.bind_agents(Trainer_Predictor_agent, monitor_agent_2)
 
     # set all agents states to "Running"
     agentNetwork.set_running_state()

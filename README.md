@@ -57,3 +57,15 @@ For details about the agents refer to the
 
 ## Screenshot of web visualization
 ![Web Screenshot](https://github.com/bangxiangyong/agentMet4FoF/blob/master/screenshot_met4fof.png)
+
+## Developing
+
+For development and testing you should as well install the development dependencies
+ provided in the dev-requirements.txt for Python 3.7 as well.
+ 
+```python
+$ source my_anomaly_detection_use_case_env/bin/activate
+$ pip-sync dev-requirements.txt requirements.txt
+```
+
+You will find another run configuration for the test suite in your PyCharm IDE.

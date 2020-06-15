@@ -6,31 +6,25 @@
 # - "Bang Xiang Yong" <bxy20@cam.ac.uk>,
 # - "Björn Ludwig" <bjoern.ludwig@ptb.de>,
 
+import copy
 import gc
 import time
-import plotly.graph_objs as go
 from datetime import datetime
-import os
-from numpy.random import seed
-from scipy import stats
-
-from agentMET4FOF.agents import AgentMET4FOF, AgentNetwork, MonitorAgent, DataStreamAgent
-from agentMET4FOF.streams import SineGenerator
 from pathlib import Path
 
-import torch
 import numpy as np
 import pandas as pd
-import torch.utils.data as data
-from torch import nn, optim
-from torch.autograd import Variable
-from torch.nn import functional as F
-import random
-import copy
-from examples import custom_dashboard
+import plotly.graph_objs as go
+import torch
+from numpy.random import seed
+from scipy import stats
+from torch import nn
 
-#######################################################################################################################
-# Defined random_seed because of willing same raw data in every runing
+from agentMET4FOF.agentMET4FOF.agents import AgentMET4FOF, AgentNetwork, MonitorAgent
+from agentMET4FOF.agentMET4FOF.streams import SineGenerator
+
+########################################################################################
+# Defined random_seed because of willing same raw data in every running.
 random_seed = 42
 np.random.seed(random_seed)
 torch.manual_seed(random_seed)

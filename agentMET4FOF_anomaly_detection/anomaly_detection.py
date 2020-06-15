@@ -657,7 +657,7 @@ def custom_create_monitor_graph_calculation(data, sender_agent):
 ########################################################################################
 
 
-def main():
+def run_detection():
     # start agent network server
     agentNetwork = AgentNetwork()
 
@@ -729,6 +729,6 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    run_detection()
 
 # Done and finish

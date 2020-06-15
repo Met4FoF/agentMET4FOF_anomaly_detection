@@ -1,4 +1,10 @@
 #! Author is Mr.Majid Aminian(majidam66@gmail.com)
+#
+# Contributors:
+#
+# - "Maximilian Gruber" <maximilian.gruber@ptb.de>,
+# - "Bang Xiang Yong" <bxy20@cam.ac.uk>,
+# - "Björn Ludwig" <bjoern.ludwig@ptb.de>,
 
 import gc
 import time

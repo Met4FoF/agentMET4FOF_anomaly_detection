@@ -27,11 +27,28 @@ To install all dependencies in virtual environment based on Python version 3.7 f
 install `pip-tools` and afterwards use our prepared `requirements.txt` to get
 everything ready.
 
+### Create a virtual environment on Windows
+
+In your Windows command prompt execute the following to set up a virtual environment
+in a folder of your choice.
+
 ```shell
-$ python3.7 -m venv my_anomaly_detection_use_case_env`
+> python -m venv my_anomaly_detection_use_case_env
+> my_anomaly_detection_use_case_env\Scripts\activate.bat
+(my_anomaly_detection_use_case_env) > pip install --upgrade pip setuptools pip-tools
+(my_anomaly_detection_use_case_env) > pip-sync
+```
+
+### Create a virtual environment on Mac and Linux
+
+In your terminal execute the following to set up a virtual environment in a folder of
+ your choice.
+
+```shell
+$ python3.7 -m venv my_anomaly_detection_use_case_env
 $ source my_anomaly_detection_use_case_env/bin/activate
-$ pip install --upgrade pip setuptools pip-tools
-$ pip-sync
+(my_anomaly_detection_use_case_env) $ pip install --upgrade pip setuptools pip-tools
+(my_anomaly_detection_use_case_env) $ pip-sync
 ```
 
 ### Scripts
@@ -40,15 +57,29 @@ The interesting parts you find in the file
 
 - `agentMET4FOF_anomaly_detection/anomaly_detection.py`
 
-### Note
+### Orphaned processes
 
-In the event of agents not terminating cleanly, run
+In the event of agents not terminating cleanly, you can end all Python processes
+running on your system (caution: the following commands affect **all** running Python
+ processes, not just those that emerged from the agents).
+
+#### Killing all Python processes in Windows
+
+In your Windows command prompt execute the following to terminate all python processes.
 
 ```shell
-taskkill /f /im python.exe /t
+> taskkill /f /im python.exe /t
+>
 ```
 
-in Windows Command Prompt to terminate all background python processes.
+#### Killing all Python processes on Mac and Linux
+
+In your terminal execute the following to terminate all python processes.
+
+```shell
+$ pkill python
+$
+```
 
 ## References
 
@@ -61,11 +92,11 @@ For details about the agents refer to the
 ## Developing
 
 For development and testing you should as well install the development dependencies
- provided in the dev-requirements.txt for Python 3.7 as well.
+provided in the dev-requirements.txt for Python 3.7 as well.
  
 ```python
 $ source my_anomaly_detection_use_case_env/bin/activate
-$ pip-sync dev-requirements.txt requirements.txt
+(my_anomaly_detection_use_case_env) $ pip-sync dev-requirements.txt requirements.txt
 ```
 
 You will find another run configuration for the test suite in your PyCharm IDE.

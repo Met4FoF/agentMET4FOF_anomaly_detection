@@ -3,4 +3,4 @@ numpy
 scipy
 pandas
 torch
--r agentMET4FOF/requirements.txt
+agentMET4FOF>=0.2.0

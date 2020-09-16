@@ -20,8 +20,8 @@ from numpy.random import seed
 from scipy import stats
 from torch import nn
 
-from agentMET4FOF.agentMET4FOF.agents import AgentMET4FOF, AgentNetwork, MonitorAgent
-from agentMET4FOF.agentMET4FOF.streams import SineGenerator
+from agentMET4FOF.agents import AgentMET4FOF, AgentNetwork, MonitorAgent
+from agentMET4FOF.streams import SineGenerator
 
 ########################################################################################
 # Defined random_seed because of willing same raw data in every running.

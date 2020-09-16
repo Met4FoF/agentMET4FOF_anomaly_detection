@@ -4,65 +4,43 @@
 #
 #    pip-compile
 #
-backcall==0.2.0           # via ipython
+agentmet4fof==0.1.8       # via -r requirements.in
 brotli==1.0.7             # via flask-compress
 click==7.1.2              # via flask
 cloudpickle==1.4.1        # via osbrain
 cycler==0.10.0            # via matplotlib
 dash-core-components==1.10.0  # via dash
-dash-cytoscape==0.1.1     # via -r agentMET4FOF/requirements.txt
+dash-cytoscape==0.1.1     # via agentmet4fof
 dash-html-components==1.0.3  # via dash, dash-cytoscape
 dash-table==4.7.0         # via dash
-dash==1.12.0              # via -r agentMET4FOF/requirements.txt, dash-cytoscape
+dash==1.12.0              # via agentmet4fof, dash-cytoscape
 dash_renderer==1.4.1      # via dash, dash-cytoscape
-decorator==4.4.2          # via ipython, networkx, traitlets
+decorator==4.4.2          # via networkx
 dill==0.3.1.1             # via osbrain
 flask-compress==1.5.0     # via dash
 flask==1.1.2              # via dash, flask-compress
 future==0.18.2            # via dash, torch
-ipykernel==5.3.0          # via -r agentMET4FOF/requirements.txt
-ipython-genutils==0.2.0   # via traitlets
-ipython==7.15.0           # via ipykernel
 itsdangerous==1.1.0       # via flask
-jedi==0.17.0              # via ipython
 jinja2==2.11.2            # via flask
 joblib==0.15.1            # via scikit-learn
-jupyter-client==6.1.3     # via ipykernel
-jupyter-core==4.6.3       # via jupyter-client
 kiwisolver==1.2.0         # via matplotlib
 markupsafe==1.1.1         # via jinja2
-matplotlib==3.1.0         # via -r agentMET4FOF/requirements.txt, scikit-multiflow
-networkx==2.4             # via -r agentMET4FOF/requirements.txt
-numpy==1.18.5             # via -r agentMET4FOF/requirements.txt, -r requirements.in, matplotlib, pandas, scikit-learn, scikit-multiflow, scipy, torch, torchvision
-osbrain==0.6.5            # via -r agentMET4FOF/requirements.txt
-pandas==1.0.4             # via -r agentMET4FOF/requirements.txt, -r requirements.in, scikit-multiflow
-parso==0.7.0              # via jedi
-pexpect==4.8.0            # via ipython
-pickleshare==0.7.5        # via ipython
-pillow==7.1.2             # via torchvision
-plotly==4.8.1             # via -r agentMET4FOF/requirements.txt, -r requirements.in, dash
-prompt-toolkit==3.0.5     # via ipython
-ptyprocess==0.6.0         # via pexpect
-pygments==2.6.1           # via ipython
+matplotlib==3.1.0         # via agentmet4fof
+networkx==2.4             # via agentmet4fof
+numpy==1.18.5             # via -r requirements.in, agentmet4fof, matplotlib, pandas, scikit-learn, scipy, torch
+osbrain==0.6.5            # via agentmet4fof
+pandas==1.0.4             # via -r requirements.in, agentmet4fof
+plotly==4.8.1             # via -r requirements.in, agentmet4fof, dash
 pyparsing==2.4.7          # via matplotlib
 pyro4==4.80               # via osbrain
-python-dateutil==2.8.1    # via jupyter-client, matplotlib, pandas
+python-dateutil==2.8.1    # via matplotlib, pandas
 pytz==2020.1              # via pandas
-pyzmq==19.0.1             # via jupyter-client, osbrain
+pyzmq==19.0.1             # via osbrain
 retrying==1.3.3           # via plotly
-scikit-learn==0.23.1      # via -r agentMET4FOF/requirements.txt, scikit-multiflow
-scikit-multiflow==0.4.1   # via -r agentMET4FOF/requirements.txt
-scipy==1.4.1              # via -r agentMET4FOF/requirements.txt, -r requirements.in, scikit-learn, scikit-multiflow
+scikit-learn==0.23.1      # via agentmet4fof
+scipy==1.4.1              # via -r requirements.in, scikit-learn
 serpent==1.30.2           # via pyro4
-six==1.15.0               # via cycler, plotly, python-dateutil, retrying, traitlets
-sortedcontainers==2.2.2   # via scikit-multiflow
+six==1.15.0               # via cycler, plotly, python-dateutil, retrying
 threadpoolctl==2.1.0      # via scikit-learn
-torch==1.5.0              # via -r agentMET4FOF/requirements.txt, -r requirements.in, torchvision
-torchvision==0.6.0        # via -r agentMET4FOF/requirements.txt
-tornado==6.0.4            # via ipykernel, jupyter-client
-traitlets==4.3.3          # via ipykernel, ipython, jupyter-client, jupyter-core
-wcwidth==0.2.4            # via prompt-toolkit
+torch==1.5.0              # via -r requirements.in
 werkzeug==1.0.1           # via flask
-
-# The following packages are considered to be unsafe in a requirements file:
-# setuptools

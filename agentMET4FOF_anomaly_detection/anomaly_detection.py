@@ -38,7 +38,7 @@ class SineGeneratorAgent(AgentMET4FOF):
     # Generating raw data
     def init_parameters(self, scale_amplitude=1):
         # Setup a sine stream as in the original version written for agentMET4FOF 0.2.0.
-        sine_stream = np.sin(np.arange(0, 3.142 * 1000, 0.5))
+        sine_stream = np.sin(np.arange(0, 3.142 * 1000000, 0.5))
         stream = DataStreamMET4FOF()
         stream.set_data_source(quantities=sine_stream)
 
@@ -659,7 +659,7 @@ def custom_create_monitor_graph_calculation(data, sender_agent):
 
 def run_detection():
     # start agent network server
-    agentNetwork = AgentNetwork(backend="mesa")
+    agentNetwork = AgentNetwork()
 
     gen_agent_test1 = agentNetwork.add_agent(
         name="Sensor1", agentType=SineGeneratorAgent, log_mode=False, buffer_size=5,
@@ -679,7 +679,7 @@ def run_detection():
         agentType=MonitorAgent, buffer_size=100, log_mode=False
     )
     monitor_agent_2 = agentNetwork.add_agent(
-        agentType=MonitorAgent, buffer_size=100, log_mode=False
+        agentType=MonitorAgent, buffer_size=300, log_mode=False
     )
 
     gen_agent_test1.init_agent_loop(loop_wait=0.01)

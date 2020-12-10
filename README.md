@@ -92,7 +92,7 @@ For details about the agents refer to the
 ## Developing
 
 For development and testing you should as well install the development dependencies
-provided in the dev-requirements.txt for Python 3.7 as well.
+provided in the dev-requirements.txt for Python 3.8 as well.
  
 ```python
 $ source my_anomaly_detection_use_case_env/bin/activate

@@ -16,12 +16,11 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objs as go
 import torch
+from agentMET4FOF.agents import AgentMET4FOF, AgentNetwork, MonitorAgent
+from agentMET4FOF.streams import DataStreamMET4FOF
 from numpy.random import seed
 from scipy import stats
 from torch import nn
-
-from agentMET4FOF.agents import AgentMET4FOF, AgentNetwork, MonitorAgent
-from agentMET4FOF.streams import DataStreamMET4FOF, SineGenerator
 
 ########################################################################################
 # Defined random_seed because of willing same raw data in every running.
@@ -39,7 +38,7 @@ class SineGeneratorAgent(AgentMET4FOF):
     # Generating raw data
     def init_parameters(self, scale_amplitude=1):
         # Setup a sine stream as in the original version written for agentMET4FOF 0.2.0.
-        sine_stream = np.sin(np.arange(0,3.142*1000,0.5))
+        sine_stream = np.sin(np.arange(0, 3.142 * 1000, 0.5))
         stream = DataStreamMET4FOF()
         stream.set_data_source(quantities=sine_stream)
 
@@ -256,7 +255,7 @@ class Disturbance(AgentMET4FOF):
         now = datetime.now()
 
         # Generate every 5 seconds random anomaly data and multiple to each sensor
-        # data, random anomaly data mulipuled with fixed decimal number because
+        # data, random anomaly data multiplied with fixed decimal number because
         # purpose is different anomalies for each sensor
         if now.second % 5 == 0:
             # added Anomalies value for checking that data is anomaly or not
@@ -611,7 +610,7 @@ def custom_create_monitor_graph_calculation(data, sender_agent):
     """
     Parameters
     ----------
-    data : dict or np.darray
+    data : dict or np.ndarray
         The data saved in the MonitorAgent's memory, for each Inputs (Agents) it is
         connected to.
 
@@ -692,7 +691,8 @@ def run_detection():
     gen_agent_test3.init_agent_loop(loop_wait=0.01)
 
     Trainer_Predictor_agent.init_parameters(
-        model_type="withLSTM")  # define train_size and machine learning model types(
+        model_type="withLSTM"
+    )  # define train_size and machine learning model types(
     # withLSTM or withoutLSTM)
 
     monitor_agent_1.init_parameters(

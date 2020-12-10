@@ -657,17 +657,17 @@ def run_detection():
     agentNetwork = AgentNetwork(backend="mesa")
 
     gen_agent_test1 = agentNetwork.add_agent(
-        name="Sensor1", agentType=SineGeneratorAgent, log_mode=False, buffer_size=100,
+        name="Sensor1", agentType=SineGeneratorAgent, log_mode=False, buffer_size=5,
     )
     gen_agent_test2 = agentNetwork.add_agent(
-        name="Sensor2", agentType=SineGeneratorAgent, log_mode=False, buffer_size=100,
+        name="Sensor2", agentType=SineGeneratorAgent, log_mode=False, buffer_size=5,
     )
     gen_agent_test3 = agentNetwork.add_agent(
-        name="Sensor3", agentType=SineGeneratorAgent, log_mode=False, buffer_size=100,
+        name="Sensor3", agentType=SineGeneratorAgent, log_mode=False, buffer_size=5,
     )
 
-    aggregator_agent = agentNetwork.add_agent(agentType=Aggregator)
-    disturbance_agent = agentNetwork.add_agent(agentType=Disturbance)
+    aggregator_agent = agentNetwork.add_agent(agentType=Aggregator, buffer_size=5)
+    disturbance_agent = agentNetwork.add_agent(agentType=Disturbance, buffer_size=5)
     Trainer_Predictor_agent = agentNetwork.add_agent(agentType=Trainer_Predictor)
 
     monitor_agent_1 = agentNetwork.add_agent(

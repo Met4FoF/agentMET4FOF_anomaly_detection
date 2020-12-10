@@ -667,8 +667,8 @@ def run_detection():
         name="Sensor3", agentType=SineGeneratorAgent, log_mode=False, buffer_size=5,
     )
 
-    aggregator_agent = agentNetwork.add_agent(agentType=Aggregator, buffer_size=5)
-    disturbance_agent = agentNetwork.add_agent(agentType=Disturbance, buffer_size=5)
+    aggregator_agent = agentNetwork.add_agent(agentType=Aggregator)
+    disturbance_agent = agentNetwork.add_agent(agentType=Disturbance)
     Trainer_Predictor_agent = agentNetwork.add_agent(agentType=Trainer_Predictor)
 
     monitor_agent_1 = agentNetwork.add_agent(

@@ -87,7 +87,7 @@ For details about the agents refer to the
 [upstream repository _agentMET4FOF_](https://github.com/bangxiangyong/agentMET4FOF)
 
 ## Screenshot of web visualization
-![Web Screenshot](https://github.com/bangxiangyong/agentMet4FoF/blob/master/screenshot_met4fof.png)
+![Web Screenshot](https://github.com/bangxiangyong/agentMET4FOF/raw/master/docs/screenshot_met4fof.png)
 
 ## Developing
 

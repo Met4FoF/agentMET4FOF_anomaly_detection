@@ -21,7 +21,7 @@ from scipy import stats
 from torch import nn
 
 from agentMET4FOF.agents import AgentMET4FOF, AgentNetwork, MonitorAgent
-from agentMET4FOF.streams import SineGenerator
+from agentMET4FOF.streams import DataStreamMET4FOF, SineGenerator
 
 ########################################################################################
 # Defined random_seed because of willing same raw data in every running.
@@ -38,7 +38,12 @@ device = torch.device("cpu")
 class SineGeneratorAgent(AgentMET4FOF):
     # Generating raw data
     def init_parameters(self, scale_amplitude=1):
-        self.stream = SineGenerator()
+        # Setup a sine stream as in the original version written for agentMET4FOF 0.2.0.
+        sine_stream = np.sin(np.arange(0,3.142*1000,0.5))
+        stream = DataStreamMET4FOF()
+        stream.set_data_source(quantities=sine_stream)
+
+        self.stream = stream
         self.scale_amplitude = scale_amplitude
 
     def agent_loop(self):
@@ -49,7 +54,7 @@ class SineGeneratorAgent(AgentMET4FOF):
 
             sine_data = {
                 "time": current_time,
-                "y1": sine_data["quantities"][0] * self.scale_amplitude,
+                "y1": sine_data["quantities"] * self.scale_amplitude,
             }
 
             self.buffer.store(agent_from=self.name, data=sine_data)

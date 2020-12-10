@@ -37,9 +37,8 @@ device = torch.device("cpu")
 
 class SineGeneratorAgent(AgentMET4FOF):
     # Generating raw data
-    def init_parameters(self, sensor_buffer_size, scale_amplitude=1):
+    def init_parameters(self, scale_amplitude=1):
         self.stream = SineGenerator()
-        self.buffer_size = sensor_buffer_size
         self.scale_amplitude = scale_amplitude
 
     def agent_loop(self):
@@ -49,17 +48,13 @@ class SineGeneratorAgent(AgentMET4FOF):
             current_time = time.time()
 
             sine_data = {
-                "Time": current_time,
-                "y1": sine_data["x"] * self.scale_amplitude,
+                "time": current_time,
+                "y1": sine_data["quantities"][0] * self.scale_amplitude,
             }
 
-            self.update_data_memory({"from": self.name, "data": sine_data})
-            if (
-                len(self.memory[self.name][next(iter(self.memory[self.name]))])
-                >= self.buffer_size
-            ):
-                self.send_output(self.memory[self.name])
-                self.memory = {}
+            self.buffer.store(agent_from=self.name, data=sine_data)
+            if self.buffer.buffer_filled(self.name):
+                self.send_output(self.buffer[self.name])
 
 
 ########################################################################################
@@ -222,28 +217,28 @@ class RecurrentAutoencoder(nn.Module):
 # Aggregator class aggregates three different raw sensors data to one output sensor data
 class Aggregator(AgentMET4FOF):
     def on_received_message(self, message):
-        self.update_data_memory(message)
+        self.buffer.store(message)
         self.log_info(f"message:{message}")
-        self.log_info("self.memory:" + str(self.memory))
+        self.log_info("self.buffer:" + str(self.buffer))
 
         if (
-            "Sensor1_1" in self.memory
-            and "Sensor2_1" in self.memory
-            and "Sensor3_1" in self.memory
+            "Sensor1" in self.buffer.keys()
+            and "Sensor2" in self.buffer.keys()
+            and "Sensor3" in self.buffer.keys()
         ):
             # Time selected from Sensor1_1, so Time of Sensor2_1 and Sensor3_1 are
             # omitted
-            a = pd.DataFrame(self.memory["Sensor1_1"])
-            b = pd.DataFrame(self.memory["Sensor2_1"]["y1"])
-            c = pd.DataFrame(self.memory["Sensor3_1"]["y1"])
+            a = pd.DataFrame(self.buffer["Sensor1"])
+            b = pd.DataFrame(self.buffer["Sensor2"]["y1"])
+            c = pd.DataFrame(self.buffer["Sensor3"]["y1"])
 
             # Concatenate there different sensor data and remove duplicated time
             # columns, so there is one dataframe with one time column and three
             # different sensor data in three columns
             agg_df = pd.concat([a, b, c], axis=1)
-            agg_df.columns = ["Time", "y1", "y2", "y3"]
+            agg_df.columns = ["time", "y1", "y2", "y3"]
 
-            self.memory = {}
+            self.buffer.clear()
             self.log_info(f"agg_df:{agg_df}")
             self.send_output(agg_df.to_dict("list"))
 
@@ -266,7 +261,7 @@ class Disturbance(AgentMET4FOF):
             self.log_info(f"r:{random_anomaly}")
             X_test_df = pd.DataFrame(
                 [
-                    message["data"]["Time"],
+                    message["data"]["time"],
                     message["data"]["y1"] * random_anomaly,
                     message["data"]["y2"] * random_anomaly * 0.3,
                     message["data"]["y3"] * random_anomaly * 0.6,
@@ -275,14 +270,14 @@ class Disturbance(AgentMET4FOF):
             )
 
             X_test_df = X_test_df.T
-            X_test_df.columns = ["Time", "y1", "y2", "y3", "Anomalies"]
+            X_test_df.columns = ["time", "y1", "y2", "y3", "Anomalies"]
             self.log_info(f"abnormal_test:{X_test_df}")
 
         # Generate normal data during every 5 seconds
         if now.second % 5 != 0:
             X_test_df = pd.DataFrame(
                 [
-                    message["data"]["Time"],
+                    message["data"]["time"],
                     message["data"]["y1"],
                     message["data"]["y2"],
                     message["data"]["y3"],
@@ -290,7 +285,7 @@ class Disturbance(AgentMET4FOF):
             )
             X_test_df = X_test_df.T
 
-            X_test_df.columns = ["Time", "y1", "y2", "y3"]
+            X_test_df.columns = ["time", "y1", "y2", "y3"]
             self.log_info(f"normal_test:{X_test_df}")
 
         self.log_info(f"Disturbance_X_test_df:{X_test_df}")
@@ -301,7 +296,7 @@ class Disturbance(AgentMET4FOF):
 # loss, uncertainties, threshold and p_value, so all these calculations will be
 # done in function "on_received_message" in every iteration
 class Trainer_Predictor(AgentMET4FOF):
-    def init_parameters(self, train_size, model_type):
+    def init_parameters(self, train_size=10, model_type="withLSTM"):
         self.model = None
         self.counter = 0
         self.X_train_std = 0
@@ -565,7 +560,7 @@ class Trainer_Predictor(AgentMET4FOF):
         scored["p_values"] = np.mean([1 - self.p_values])
 
         # Select first time of message(stream data came from aggregator)
-        scored["Time"] = message["data"]["Time"][0]
+        scored["time"] = message["data"]["time"][0]
         self.log_info(f"scored:{scored.T}")
 
         scored_dict = scored.to_dict("list")
@@ -591,7 +586,7 @@ def custom_create_monitor_graph_raw_data(data, sender_agent):
         Custom parameters
     """
 
-    x = pd.to_datetime(data["Time"], unit="s")
+    x = pd.to_datetime(data["time"], unit="s")
     y1 = data["y1"]
     y2 = data["y2"]
     y3 = data["y3"]
@@ -621,7 +616,7 @@ def custom_create_monitor_graph_calculation(data, sender_agent):
         Custom parameters
     """
 
-    x = pd.to_datetime(data["Time"], unit="s")
+    x = pd.to_datetime(data["time"], unit="s")
     loss = data["loss"]
     threshold = data["threshold"]
     upper_uncertainty_loss = data["upper_uncertainty_loss"]
@@ -659,16 +654,16 @@ def custom_create_monitor_graph_calculation(data, sender_agent):
 
 def run_detection():
     # start agent network server
-    agentNetwork = AgentNetwork()
+    agentNetwork = AgentNetwork(backend="mesa")
 
     gen_agent_test1 = agentNetwork.add_agent(
-        name="Sensor1", agentType=SineGeneratorAgent, log_mode=False
+        name="Sensor1", agentType=SineGeneratorAgent, log_mode=False, buffer_size=100,
     )
     gen_agent_test2 = agentNetwork.add_agent(
-        name="Sensor2", agentType=SineGeneratorAgent, log_mode=False
+        name="Sensor2", agentType=SineGeneratorAgent, log_mode=False, buffer_size=100,
     )
     gen_agent_test3 = agentNetwork.add_agent(
-        name="Sensor3", agentType=SineGeneratorAgent, log_mode=False
+        name="Sensor3", agentType=SineGeneratorAgent, log_mode=False, buffer_size=100,
     )
 
     aggregator_agent = agentNetwork.add_agent(agentType=Aggregator)
@@ -676,40 +671,26 @@ def run_detection():
     Trainer_Predictor_agent = agentNetwork.add_agent(agentType=Trainer_Predictor)
 
     monitor_agent_1 = agentNetwork.add_agent(
-        agentType=MonitorAgent, memory_buffer_size=100, log_mode=False
+        agentType=MonitorAgent, buffer_size=100, log_mode=False
     )
     monitor_agent_2 = agentNetwork.add_agent(
-        agentType=MonitorAgent, memory_buffer_size=100, log_mode=False
+        agentType=MonitorAgent, buffer_size=100, log_mode=False
     )
 
-    gen_agent_test1.init_parameters(sensor_buffer_size=5)
     gen_agent_test1.init_agent_loop(loop_wait=0.01)
 
-    gen_agent_test2.init_parameters(sensor_buffer_size=5, scale_amplitude=0.3)
+    gen_agent_test2.init_parameters(scale_amplitude=0.3)
     gen_agent_test2.init_agent_loop(loop_wait=0.01)
 
-    gen_agent_test3.init_parameters(sensor_buffer_size=5, scale_amplitude=0.6)
+    gen_agent_test3.init_parameters(scale_amplitude=0.6)
     gen_agent_test3.init_agent_loop(loop_wait=0.01)
 
     Trainer_Predictor_agent.init_parameters(
-        10, "withLSTM"
-    )  # define train_size and machine learning model types(withLSTM or withoutLSTM)
+        model_type="withLSTM")  # define train_size and machine learning model types(
+    # withLSTM or withoutLSTM)
 
-    monitor_agent_1.init_parameters(
-        plot_filter=["Time", "y1", "y2", "y3"],
-        custom_plot_function=custom_create_monitor_graph_raw_data,
-    )
-    monitor_agent_2.init_parameters(
-        plot_filter=[
-            "Time",
-            "loss",
-            "threshold",
-            "upper_uncertainty_loss",
-            "below_uncertainty_loss",
-            "p_values",
-        ],
-        custom_plot_function=custom_create_monitor_graph_calculation,
-    )
+    monitor_agent_1.init_parameters()
+    monitor_agent_2.init_parameters()
 
     # bind agents
     agentNetwork.bind_agents(gen_agent_test1, aggregator_agent)

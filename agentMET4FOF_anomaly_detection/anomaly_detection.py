@@ -695,8 +695,12 @@ def run_detection():
         model_type="withLSTM")  # define train_size and machine learning model types(
     # withLSTM or withoutLSTM)
 
-    monitor_agent_1.init_parameters()
-    monitor_agent_2.init_parameters()
+    monitor_agent_1.init_parameters(
+        custom_plot_function=custom_create_monitor_graph_raw_data,
+    )
+    monitor_agent_2.init_parameters(
+        custom_plot_function=custom_create_monitor_graph_calculation,
+    )
 
     # bind agents
     agentNetwork.bind_agents(gen_agent_test1, aggregator_agent)

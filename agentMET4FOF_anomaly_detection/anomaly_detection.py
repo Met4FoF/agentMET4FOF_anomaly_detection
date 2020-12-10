@@ -55,6 +55,7 @@ class SineGeneratorAgent(AgentMET4FOF):
             self.buffer.store(agent_from=self.name, data=sine_data)
             if self.buffer.buffer_filled(self.name):
                 self.send_output(self.buffer[self.name])
+                self.buffer.clear()
 
 
 ########################################################################################
